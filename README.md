@@ -5,7 +5,7 @@ PC 内の画像を、文章や画像で探すアプリ。EmbeddingGemma 2 で画
 ## 起動
 ```
 ./setup.sh          # 初回だけ(.venv を作って依存を入れる)
-IMAGE_ROOTS=~/Pictures:/mnt/data/images ./run.sh
+IMAGE_ROOTS=~/Pictures:/mnt/data/images ./run.sh   # CPU で動く
 ```
 ブラウザで http://127.0.0.1:7870 を開く。フォルダは画面の「フォルダ設定」でも変えられる。
 
@@ -21,10 +21,13 @@ IMAGE_ROOTS=~/Pictures:/mnt/data/images ./run.sh
 - `static/index.html` 画面
 - `data/` 索引(`vectors.npy`, `meta.json`, `thumbs/`)
 
-## CPU で動かす
-```
-CUDA_VISIBLE_DEVICES= ./run.sh
-```
+## CPU で動かす(既定)
 優先度を下げ、8 スレッドで、画像を 140 トークンで表す(8 コアの性能コアで 1 枚約 0.86 秒。280 トークンだと約 2 秒)。
 性能コアと効率コアがある CPU では、`CPU_CORES=0,2,4,6,8,10,12,14` のように性能コアを指定すると速い(番号は `lscpu -e` で確かめる)。
 `EMBED_IMAGE_TOKENS`(70〜1120)、`EMBED_THREADS` でも変えられる。画像トークン数を変えると索引は自動で作り直す。
+
+## GPU で動かす
+```
+CUDA_VISIBLE_DEVICES=0 ./run.sh
+```
+画像を 280 トークンで表す(1 枚約 0.25 秒)。CPU と GPU を切り替えて同じ索引を使うなら、`EMBED_IMAGE_TOKENS` をそろえる(違うと索引を作り直す)。
