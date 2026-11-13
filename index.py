@@ -62,11 +62,11 @@ class ImageIndex:
             vecs = np.load(vec_p)
         except Exception:
             return
+        if meta.get("roots"):
+            self.roots = meta["roots"]  # 索引を作り直すときも、調べるフォルダの設定は引き継ぐ
         if (meta.get("version") != INDEX_VERSION or meta.get("dim") != self.embedder.dim
                 or meta.get("image_tokens", 280) != self.embedder.image_tokens or len(meta["images"]) != len(vecs)):
             return  # 形式や画像トークン数が違う索引は捨てて作り直す(ベクトルが変わるので混ぜない)
-        if meta.get("roots"):
-            self.roots = meta["roots"]
         self._set(meta["images"], vecs)
 
     def _save(self, images, vecs):
