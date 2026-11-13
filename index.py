@@ -58,7 +58,7 @@ class ImageIndex:
         if not (meta_p.exists() and vec_p.exists()):
             return
         try:
-            meta = json.loads(meta_p.read_text())
+            meta = json.loads(meta_p.read_text(encoding="utf-8"))
             vecs = np.load(vec_p)
         except Exception:
             return
@@ -72,7 +72,7 @@ class ImageIndex:
     def _save(self, images, vecs):
         meta = {"version": INDEX_VERSION, "dim": self.embedder.dim, "image_tokens": self.embedder.image_tokens, "roots": self.roots, "images": images}
         tmp_m, tmp_v = self.data_dir / "meta.json.tmp", self.data_dir / "vectors.tmp.npy"
-        tmp_m.write_text(json.dumps(meta, ensure_ascii=False))
+        tmp_m.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")  # Windows の既定(cp932)にしない
         np.save(tmp_v, vecs)
         os.replace(tmp_v, self.data_dir / "vectors.npy")
         os.replace(tmp_m, self.data_dir / "meta.json")

@@ -66,7 +66,7 @@ body.drag main { outline:3px dashed var(--accent); outline-offset:-8px; }
 </div>
 <script>
 const $ = id => document.getElementById(id);
-let seq = 0, current = null, rootsLoaded = false;
+let seq = 0, current = null, rootsLoaded = false, sep = ':';  // フォルダの区切り(Windows は ;)
 // 1位との点数差がこの幅を超える画像は出さない。点数の水準は検索の種類で違うので、幅も種類ごとに覚える
 const MARGIN_DEFAULT = { text: 0.03, image: 0.06 };
 let mode = 'text', last = null;
@@ -149,7 +149,7 @@ $('vopen').onclick = () => api(`/api/open/${current.id}`, { method: 'POST' }).ca
 
 $('toggleSettings').onclick = () => { const s = $('settings'); s.style.display = s.style.display === 'flex' ? 'none' : 'flex'; };
 $('saveRoots').onclick = () => {
-  const roots = $('roots').value.split(':').map(s => s.trim()).filter(Boolean);
+  const roots = $('roots').value.split(sep).map(s => s.trim()).filter(Boolean);
   api('/api/roots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roots }) })
     .then(poll).catch(e => alert(e.message));
 };
@@ -161,7 +161,7 @@ async function poll() {
   clearTimeout(pollTimer);
   try {
     const s = await api('/api/status');
-    if (!rootsLoaded) { $('roots').value = s.roots.join(':'); rootsLoaded = true; }
+    if (!rootsLoaded) { sep = s.pathsep || ':'; $('roots').value = s.roots.join(sep); $('roots').placeholder = `調べるフォルダ(複数は ${sep} で区切る)`; rootsLoaded = true; }
     let t = `${s.count} 枚 ・ ${STATE[s.state] || s.state}`;
     if (s.state === 'embedding') t += ` ${s.done}/${s.total}`;
     if (s.errors) t += ` ・ 読めない画像 ${s.errors}`;

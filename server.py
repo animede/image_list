@@ -5,7 +5,7 @@
     ブラウザで http://127.0.0.1:7870 を開く
 
 環境変数:
-    IMAGE_ROOTS  調べるフォルダ(":" 区切り)。最初の 1 回だけ使い、あとは画面で変える。既定は ~/Pictures
+    IMAGE_ROOTS  調べるフォルダ(Linux は ":"、Windows は ";" 区切り)。最初の 1 回だけ使い、あとは画面で変える。既定は ~/Pictures
     DATA_DIR     索引の置き場所。既定は ./data
     EMBED_DIM    ベクトルの次元(768 / 512 / 256)。既定は 768
     EMBED_THREADS  CPU で動かすときのスレッド数。既定は 8
@@ -14,6 +14,7 @@
 import io
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -26,7 +27,7 @@ from index import ImageIndex
 
 HERE = Path(__file__).parent
 DATA_DIR = Path(os.getenv("DATA_DIR", HERE / "data"))
-ROOTS = [r for r in os.getenv("IMAGE_ROOTS", "~/Pictures").split(":") if r]
+ROOTS = [r for r in os.getenv("IMAGE_ROOTS", "~/Pictures").split(os.pathsep) if r]
 MAX_UPLOAD = 30 * 2**20
 
 index = ImageIndex(Embedder(int(os.getenv("EMBED_DIM", "768"))), DATA_DIR, ROOTS)
@@ -46,7 +47,7 @@ def page():
 
 @app.get("/api/status")
 def status():
-    return {**index.status, "count": len(index.images), "roots": index.roots, "device": index.embedder.device,
+    return {**index.status, "count": len(index.images), "roots": index.roots, "device": index.embedder.device, "pathsep": os.pathsep,
             "image_tokens": index.embedder.image_tokens}
 
 
@@ -124,5 +125,9 @@ def open_folder(iid: str):
     m = index.get(iid)
     if not m:
         raise HTTPException(404)
-    subprocess.Popen(["xdg-open", os.path.dirname(m["path"])], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if sys.platform == "win32":
+        subprocess.Popen(["explorer", "/select,", os.path.normpath(m["path"])])  # 画像を選んだ状態で開く
+    else:
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.Popen([opener, os.path.dirname(m["path"])], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return {"ok": True}

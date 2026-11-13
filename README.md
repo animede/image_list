@@ -2,6 +2,15 @@
 
 PC 内の画像を、文章や画像で探すアプリ。[EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) で画像と文章を同じ空間のベクトル(768 次元)にして、コサイン類似度で並べる。画像も索引も PC の中だけで扱い、外には送らない(モデルの取得だけ Hugging Face に接続する)。
 
+### Windows
+```
+setup.bat
+run.bat
+```
+フォルダは `set IMAGE_ROOTS=C:\Users\me\Pictures;D:\photos` のように `;` で区切る(画面の「フォルダ設定」でも変えられる)。
+GPU を使うときは、pytorch.org の手順で CUDA 版の torch を `.venv` に入れてから `set CUDA_VISIBLE_DEVICES=0` で起動する。
+CPU のコアを指定するときは `set CPU_AFFINITY=FF`(16 進のマスク)。
+
 ## できること
 - 文章で探す(例: 「夕焼けの海」「猫が寝ている」)
 - 画像で探す(ファイルを選ぶか、画面にドロップ)
