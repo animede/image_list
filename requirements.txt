@@ -1,0 +1,8 @@
+torch>=2.14
+torchvision
+transformers>=5.19
+sentence-transformers>=6.1  # 画像を dict で渡すのに 6.1 以上が要る
+fastapi>=0.115
+uvicorn>=0.30
+pillow>=11.0
+numpy
