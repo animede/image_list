@@ -23,6 +23,7 @@ from PIL import Image, ImageOps
 from pydantic import BaseModel
 
 from embedder import Embedder
+import folders
 from index import ImageIndex
 
 HERE = Path(__file__).parent
@@ -64,6 +65,20 @@ def set_roots(body: Roots):
     if not index.start_sync(roots):
         raise HTTPException(409, "索引を作っている最中です")
     return {"ok": True}
+
+
+@app.get("/api/folders/suggest")
+def folder_suggest():
+    return {"folders": folders.suggestions()}
+
+
+@app.post("/api/folders/pick")
+def folder_pick():
+    """OS のフォルダ選択画面を開く(選ぶまで待つ)。"""
+    try:
+        return {"path": folders.pick_folder()}
+    except RuntimeError as e:
+        raise HTTPException(501, str(e))
 
 
 @app.post("/api/reindex")

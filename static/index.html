@@ -17,7 +17,17 @@ button:hover, label.btn:hover { border-color:var(--accent); }
 #filterRow { margin-top:8px; font-size:13px; color:var(--muted); }
 #filterRow input { width:200px; }
 #status { color:var(--muted); font-size:13px; margin-top:6px; }
-#settings { display:none; margin-top:8px; }
+#settings { display:none; margin-top:10px; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
+#settings.open { display:flex; flex-direction:column; gap:8px; }
+#settings .hint, .hint { color:var(--muted); font-size:13px; }
+#folderList { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+#folderList li { display:flex; align-items:center; gap:8px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; overflow-wrap:anywhere; }
+#folderList li span { flex:1; }
+#folderList li button { padding:2px 8px; }
+#folderList .empty { color:var(--muted); border-style:dashed; }
+#suggest button { font-size:13px; padding:5px 10px; }
+button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+button:disabled { opacity:.5; cursor:default; }
 main { padding:16px; }
 #info { color:var(--muted); font-size:13px; margin-bottom:10px; }
 #grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:10px; }
@@ -44,10 +54,22 @@ body.drag main { outline:3px dashed var(--accent); outline-offset:-8px; }
     <input id="margin" type="range" min="0.005" max="0.15" step="0.005">
     <span id="marginVal"></span>
   </div>
-  <div id="settings" class="row">
-    <input id="roots" type="text" placeholder="調べるフォルダ(複数は : で区切る)">
-    <button id="saveRoots">保存して索引を作る</button>
-    <button id="reindex">変更を取り込む</button>
+  <div id="settings">
+    <div class="hint" id="settingsHint">画像を探すフォルダを選んでください。中のフォルダも全部調べます。</div>
+    <ul id="folderList"></ul>
+    <div class="row">
+      <button id="pick">フォルダを選ぶ…</button>
+      <span id="suggest" class="row"></span>
+    </div>
+    <div class="row">
+      <input id="manual" type="text" placeholder="またはフォルダのパスを貼り付けて追加">
+      <button id="addManual">追加</button>
+    </div>
+    <div class="row">
+      <button id="saveRoots" class="primary">保存して索引を作る</button>
+      <button id="reindex">変更を取り込む</button>
+      <span id="dirty" class="hint"></span>
+    </div>
   </div>
   <div id="status">読み込み中…</div>
 </header>
@@ -66,7 +88,8 @@ body.drag main { outline:3px dashed var(--accent); outline-offset:-8px; }
 </div>
 <script>
 const $ = id => document.getElementById(id);
-let seq = 0, current = null, rootsLoaded = false, sep = ':';  // フォルダの区切り(Windows は ;)
+let seq = 0, current = null, rootsLoaded = false;
+let roots = [], savedRoots = [];  // 画面で編集中のフォルダと、サーバーに保存済みのフォルダ
 // 1位との点数差がこの幅を超える画像は出さない。点数の水準は検索の種類で違うので、幅も種類ごとに覚える
 const MARGIN_DEFAULT = { text: 0.03, image: 0.06 };
 let mode = 'text', last = null;
@@ -147,11 +170,56 @@ $('vsimilar').onclick = () => {
 };
 $('vopen').onclick = () => api(`/api/open/${current.id}`, { method: 'POST' }).catch(e => alert(e.message));
 
-$('toggleSettings').onclick = () => { const s = $('settings'); s.style.display = s.style.display === 'flex' ? 'none' : 'flex'; };
+const openSettings = (on) => $('settings').classList.toggle('open', on);
+$('toggleSettings').onclick = () => openSettings(!$('settings').classList.contains('open'));
+
+function renderFolders() {
+  const ul = $('folderList');
+  ul.replaceChildren();
+  if (!roots.length) {
+    const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'まだフォルダがありません';
+    ul.append(li);
+  }
+  roots.forEach((r, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = '<span></span><button title="外す">×</button>';
+    li.querySelector('span').textContent = r;
+    li.querySelector('button').onclick = () => { roots.splice(i, 1); renderFolders(); };
+    ul.append(li);
+  });
+  const dirty = JSON.stringify(roots) !== JSON.stringify(savedRoots);
+  $('dirty').textContent = dirty ? 'まだ保存していません' : '';
+  $('saveRoots').disabled = !dirty || !roots.length;
+  renderSuggest();
+}
+function addFolder(p) {
+  p = (p || '').trim().replace(/^"(.*)"$/, '$1');  // エクスプローラーの「パスのコピー」は " で囲まれる
+  if (p && !roots.includes(p)) roots.push(p);
+  renderFolders();
+}
+let suggestions = [];
+function renderSuggest() {
+  $('suggest').replaceChildren(...suggestions.filter(p => !roots.includes(p)).map(p => {
+    const b = document.createElement('button');
+    b.textContent = '+ ' + p.split(/[\\/]/).filter(Boolean).pop();
+    b.title = p;
+    b.onclick = () => addFolder(p);
+    return b;
+  }));
+}
+api('/api/folders/suggest').then(r => { suggestions = r.folders; renderSuggest(); }).catch(() => {});
+
+$('pick').onclick = async () => {
+  $('pick').disabled = true; $('pick').textContent = '選択画面を開いています…';
+  try { const r = await api('/api/folders/pick', { method: 'POST' }); if (r.path) addFolder(r.path); }
+  catch (e) { alert(e.message + '\nパスを貼り付けて追加してください。'); }
+  finally { $('pick').disabled = false; $('pick').textContent = 'フォルダを選ぶ…'; }
+};
+$('addManual').onclick = () => { addFolder($('manual').value); $('manual').value = ''; };
+$('manual').addEventListener('keydown', e => { if (e.key === 'Enter') $('addManual').onclick(); });
 $('saveRoots').onclick = () => {
-  const roots = $('roots').value.split(sep).map(s => s.trim()).filter(Boolean);
   api('/api/roots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roots }) })
-    .then(poll).catch(e => alert(e.message));
+    .then(() => { savedRoots = [...roots]; renderFolders(); poll(); }).catch(e => alert(e.message));
 };
 $('reindex').onclick = () => api('/api/reindex', { method: 'POST' }).then(poll).catch(e => alert(e.message));
 
@@ -161,7 +229,10 @@ async function poll() {
   clearTimeout(pollTimer);
   try {
     const s = await api('/api/status');
-    if (!rootsLoaded) { sep = s.pathsep || ':'; $('roots').value = s.roots.join(sep); $('roots').placeholder = `調べるフォルダ(複数は ${sep} で区切る)`; rootsLoaded = true; }
+    if (!rootsLoaded) {
+      roots = [...s.roots]; savedRoots = [...s.roots]; rootsLoaded = true; renderFolders();
+      if (!s.count && s.state === 'idle') openSettings(true);  // 画像が 1 枚もなければ最初から設定を開く
+    }
     let t = `${s.count} 枚 ・ ${STATE[s.state] || s.state}`;
     if (s.state === 'embedding') t += ` ${s.done}/${s.total}`;
     if (s.errors) t += ` ・ 読めない画像 ${s.errors}`;
