@@ -1,6 +1,6 @@
 torch>=2.14
-torchvision
-transformers>=5.19
+torchvision  # 画像の前処理(Gemma4ImageProcessor)が使う。無いと画像を読めない
+transformers>=5.19  # EmbeddingGemma 2 のモデル本体のコード
 sentence-transformers>=6.1  # 画像を dict で渡すのに 6.1 以上が要る
 fastapi>=0.115
 uvicorn>=0.30

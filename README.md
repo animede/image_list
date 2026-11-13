@@ -13,7 +13,7 @@ PowerShell では、いまいるフォルダのファイルも `.\` を付けな
 $env:IMAGE_ROOTS = "C:\Users\me\Pictures;D:\photos"
 .\run.bat
 ```
-GPU を使うときは、pytorch.org の手順で CUDA 版の torch を `.venv` に入れてから `$env:CUDA_VISIBLE_DEVICES = "0"` を設定して起動する。
+GPU を使うときは、`$env:TORCH_INDEX = "https://download.pytorch.org/whl/cu128"` を設定して `.\setup.bat` で CUDA 版の torch を入れ、`$env:CUDA_VISIBLE_DEVICES = "0"` を設定して起動する。
 CPU のコアを指定するときは `$env:CPU_AFFINITY = "FF"`(16 進のマスク)。設定はその PowerShell の窓を閉じるまで残る。
 コマンドプロンプト(cmd)なら `setup.bat`、`set IMAGE_ROOTS=...` の書き方になる。
 
@@ -32,7 +32,7 @@ CPU のコアを指定するときは `$env:CPU_AFFINITY = "FF"`(16 進のマス
 ```
 git clone git@github.com:animede/image_list.git
 cd image_list
-./setup.sh          # 初回だけ(.venv を作って依存を入れる)
+./setup.sh          # 初回だけ(.venv を作って依存を入れる。torch は CPU 版で約 1.5GB)
 IMAGE_ROOTS=~/Pictures:/mnt/data/images ./run.sh   # CPU で動く
 ```
 ブラウザで http://127.0.0.1:7870 を開く。最初は索引を作るので、画像の枚数に応じて時間がかかる。フォルダは画面の「フォルダ設定」でも変えられる。
@@ -56,6 +56,7 @@ IMAGE_ROOTS=~/Pictures:/mnt/data/images ./run.sh   # CPU で動く
 
 ### GPU で動かす
 ```
+TORCH_INDEX=https://download.pytorch.org/whl/cu128 ./setup.sh   # CUDA 版の torch を入れる
 CUDA_VISIBLE_DEVICES=0 ./run.sh
 ```
 画像を 280 トークンで表す(1 枚約 0.25 秒)。CPU と GPU を切り替えて同じ索引を使うなら、`EMBED_IMAGE_TOKENS` をそろえる(違うと索引を作り直す)。
