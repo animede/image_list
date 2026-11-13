@@ -108,11 +108,16 @@ async function api(url, opt) {
   return r.json();
 }
 
+let lastTime = '';
+function fmtTime(t, total) {
+  if (!t) return '';
+  return ` ・ 検索 ${total.toFixed(0)}ms(ベクトル化 ${t.embed_ms.toFixed(0)}ms + 並べ替え ${t.rank_ms.toFixed(1)}ms)`;
+}
 function render(all, label) {
   last = { results: all, label };
   const cut = all.length ? all[0].score - getMargin(mode) : 0;
   const results = all.filter(m => m.score >= cut);
-  $('info').textContent = `${label} — ${results.length} 件` + (all.length > results.length ? `(似ていない ${all.length - results.length} 件は非表示)` : '');
+  $('info').textContent = `${label} — ${results.length} 件` + (all.length > results.length ? `(似ていない ${all.length - results.length} 件は非表示)` : '') + lastTime;
   $('grid').replaceChildren(...results.map(m => {
     const d = document.createElement('div');
     d.className = 'item';
@@ -131,7 +136,9 @@ async function run(fn, label, m) {
   const my = ++seq;
   $('info').textContent = '検索中…';
   try {
+    const t0 = performance.now();
     const res = await fn();
+    lastTime = fmtTime(res.time, performance.now() - t0);  // 全体はブラウザで測った往復の時間
     if (my === seq) render(res.results, label);
   } catch (e) { if (my === seq) $('info').textContent = 'エラー: ' + e.message; }
 }

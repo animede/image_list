@@ -90,15 +90,17 @@ def reindex():
 
 @app.get("/api/search")
 def search(q: str = Query(..., min_length=1, max_length=500), k: int = Query(60, ge=1, le=500)):
-    return {"results": public(index.search_text(q, k))}
+    res, took = index.search_text(q, k)
+    return {"results": public(res), "time": took}
 
 
 @app.get("/api/similar/{iid}")
 def similar(iid: str, k: int = Query(60, ge=1, le=500)):
-    res = index.similar(iid, k)
-    if res is None:
+    found = index.similar(iid, k)
+    if found is None:
         raise HTTPException(404, "画像がありません")
-    return {"results": public(res)}
+    res, took = found
+    return {"results": public(res), "time": took}
 
 
 @app.post("/api/search_image")
@@ -112,7 +114,8 @@ async def search_image(request: Request, k: int = Query(60, ge=1, le=500)):
         im.thumbnail((1024, 1024))
     except Exception:
         raise HTTPException(400, "画像として読めません")
-    return {"results": public(index.search_image(im, k))}
+    res, took = index.search_image(im, k)
+    return {"results": public(res), "time": took}
 
 
 @app.get("/api/thumb/{iid}")

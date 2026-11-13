@@ -150,12 +150,15 @@ class ImageIndex:
             except Exception:
                 self.status["errors"] += 1
             self.status["done"] = n
+            per = (time.monotonic() - started) / n
+            self.status["message"] = f"{per:.2f} 秒/枚・残り約 {per * (len(todo) - n) / 60:.0f} 分"
             if n % SAVE_EVERY == 0:
                 self._commit(keep_m, keep_v)
-                rate = n / (time.monotonic() - started)
-                self.status["message"] = f"{rate:.1f} 枚/秒"
         self._commit(keep_m, keep_v)
-        self.status.update(state="idle", message=f"{len(keep_m)} 枚(新しく {len(todo)} 枚)")
+        msg = f"{len(keep_m)} 枚(新しく {len(todo)} 枚)"
+        if todo:
+            msg += f"・平均 {(time.monotonic() - started) / len(todo):.2f} 秒/枚"
+        self.status.update(state="idle", message=msg)
 
     def _commit(self, images, vecs):
         arr = np.vstack(vecs).astype(np.float32) if vecs else np.zeros((0, self.embedder.dim), np.float32)
@@ -167,26 +170,36 @@ class ImageIndex:
     def _rank(self, q: np.ndarray, k: int, exclude: int | None = None):
         with self._lock:
             if not len(self.images):
-                return []
+                return [], 0.0
+            t = time.perf_counter()
             scores = self.vectors @ q
             if exclude is not None:
                 scores[exclude] = -2
             k = min(k, len(scores))
             top = np.argpartition(-scores, k - 1)[:k]
             top = top[np.argsort(-scores[top])]
-            return [{**self.images[i], "score": round(float(scores[i]), 4)} for i in top]
+            rank_ms = (time.perf_counter() - t) * 1000
+            return [{**self.images[i], "score": round(float(scores[i]), 4)} for i in top], rank_ms
+
+    # 検索は (結果, かかった時間) を返す。時間は {"embed_ms": ベクトル化, "rank_ms": 並べ替え}
+    def _timed(self, make_vec, k, exclude=None):
+        t = time.perf_counter()
+        q = make_vec()
+        embed_ms = (time.perf_counter() - t) * 1000
+        res, rank_ms = self._rank(q, k, exclude)
+        return res, {"embed_ms": round(embed_ms, 1), "rank_ms": round(rank_ms, 2)}
 
     def search_text(self, query: str, k: int):
-        return self._rank(self.embedder.embed_query(query), k)
+        return self._timed(lambda: self.embedder.embed_query(query), k)
 
     def search_image(self, im: Image.Image, k: int):
-        return self._rank(self.embedder.embed_image(im), k)
+        return self._timed(lambda: self.embedder.embed_image(im), k)
 
     def similar(self, iid: str, k: int):
         i = self.by_id.get(iid)
         if i is None:
             return None
-        return self._rank(self.vectors[i], k, exclude=i)
+        return self._timed(lambda: self.vectors[i], k, exclude=i)
 
     def get(self, iid: str) -> dict | None:
         i = self.by_id.get(iid)
