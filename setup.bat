@@ -6,7 +6,7 @@ cd /d "%~dp0"
 py -3 -m venv .venv || python -m venv .venv || goto :error
 .venv\Scripts\python.exe -m pip install -U pip || goto :error
 .venv\Scripts\python.exe -m pip install -r requirements.txt || goto :error
-echo Done. Start with run.bat
+echo Done. Start with .\run.bat (PowerShell) or run.bat (cmd)
 exit /b 0
 :error
 echo Setup failed.

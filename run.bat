@@ -1,5 +1,6 @@
 @echo off
 rem Start the server, then open http://127.0.0.1:7870 in a browser.
+rem   PowerShell needs ".\": .\run.bat  /  set variables with $env:NAME = "value"
 rem   CPU (default):  run.bat            (low priority, 8 threads, 140 image tokens)
 rem   GPU:            set CUDA_VISIBLE_DEVICES=0 ^& run.bat
 rem   Folders:        set IMAGE_ROOTS=C:\Users\me\Pictures;D:\photos ^& run.bat
