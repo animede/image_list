@@ -17,12 +17,14 @@ run.bat / run.sh で起動する従来の方法はそのまま使える。この
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import socket
 import subprocess
 import sys
 import threading
 import time
+import urllib.request
 import webbrowser
 from pathlib import Path
 
@@ -46,20 +48,31 @@ def load_local_env() -> None:
         os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
-load_local_env()
-
-PORT = int(os.environ.setdefault("PORT", "7870"))
+PORT = 7870
 URL = f"http://127.0.0.1:{PORT}/"
+STARTUP_TIMEOUT_SECONDS = 600.0
 
-# torch を読み込む前に決めておく必要があるので、import より先に設定する (run.bat と同じ)。
-if not os.environ.get("CUDA_VISIBLE_DEVICES"):
-    # GPU を使うときは CUDA_VISIBLE_DEVICES=0 を設定する。
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-os.environ.setdefault("PYTHONUTF8", "1")
-os.environ.setdefault("EMBED_THREADS", "8")
-os.environ.setdefault("OMP_NUM_THREADS", os.environ["EMBED_THREADS"])
 
-STARTUP_TIMEOUT_SECONDS = float(os.getenv("STARTUP_TIMEOUT_SECONDS", "600"))
+def configure_environment() -> None:
+    """launch.env と環境変数を読み、起動設定を決める。"""
+    global PORT, URL, STARTUP_TIMEOUT_SECONDS
+    load_local_env()
+    PORT = int(os.environ.setdefault("PORT", "7870"))
+    if not 1 <= PORT <= 65535:
+        raise ValueError(f"PORT は 1〜65535 の整数で指定してください: {PORT}")
+    URL = f"http://127.0.0.1:{PORT}/"
+
+    # torch を読み込む前に決めておく必要がある (run.bat と同じ)。
+    if not os.environ.get("CUDA_VISIBLE_DEVICES"):
+        # GPU を使うときは CUDA_VISIBLE_DEVICES=0 を設定する。
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ.setdefault("PYTHONUTF8", "1")
+    os.environ.setdefault("EMBED_THREADS", "8")
+    os.environ.setdefault("OMP_NUM_THREADS", os.environ["EMBED_THREADS"])
+
+    STARTUP_TIMEOUT_SECONDS = float(os.getenv("STARTUP_TIMEOUT_SECONDS", "600"))
+    if STARTUP_TIMEOUT_SECONDS <= 0:
+        raise ValueError("STARTUP_TIMEOUT_SECONDS は 0 より大きい数で指定してください")
 
 
 def port_is_open() -> bool:
@@ -70,10 +83,22 @@ def port_is_open() -> bool:
         return False
 
 
+def image_list_is_ready() -> bool:
+    """ポートで待ち受けているのが image_list か、固有 API の応答で確認する。"""
+    try:
+        with urllib.request.urlopen(f"{URL}api/status", timeout=0.5) as response:
+            if response.status != 200:
+                return False
+            data = json.load(response)
+        return isinstance(data, dict) and {"state", "count", "roots", "device", "image_tokens"} <= data.keys()
+    except (OSError, ValueError):
+        return False
+
+
 def open_browser_when_ready() -> None:
     deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
-        if port_is_open():
+        if image_list_is_ready():
             print(f"\nブラウザで {URL} を開きます。", flush=True)
             webbrowser.open(URL)
             return
@@ -121,11 +146,15 @@ def create_desktop_shortcut() -> int:
 
 
 def run() -> int:
-    if port_is_open():
+    if image_list_is_ready():
         # 既に起動しているものがあれば、二重に立ち上げずに画面だけ開く。
         print(f"{PORT} は既に待受中です。ブラウザで {URL} を開きます。")
         webbrowser.open(URL)
         return 0
+    if port_is_open():
+        print(f"{PORT} は image_list 以外のプログラムが使っています。")
+        print("launch.env の PORT を別の番号に変更してください。")
+        return 1
 
     os.chdir(BASE_DIR)
     sys.path.insert(0, str(BASE_DIR))
@@ -157,6 +186,7 @@ def main() -> int:
     args = parser.parse_args()
     if args.shortcut:
         return create_desktop_shortcut()
+    configure_environment()
     return run()
 
 
