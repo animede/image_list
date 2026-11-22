@@ -85,6 +85,11 @@ class ImageIndex:
 
     # ---- フォルダを調べる ----
     def _walk(self):
+        # 入れ子のフォルダ(例: Pictures と Pictures/画像)や、同じ場所を指す別名
+        # (Windows の OneDrive ジャンクション等)を両方指定すると、同じ画像を
+        # 複数回拾ってしまう。二重に索引すると埋め込みの計算が無駄になり、
+        # 検索結果にも同じ画像が並ぶので、一度出した画像は飛ばす。
+        seen = set()
         for root in self.roots:
             root = os.path.expanduser(root)
             for dirpath, dirnames, filenames in os.walk(root):
@@ -92,10 +97,14 @@ class ImageIndex:
                 for f in filenames:
                     if Path(f).suffix.lower() in EXTS:
                         p = os.path.join(dirpath, f)
+                        key = os.path.normcase(os.path.realpath(p))
+                        if key in seen:
+                            continue
                         try:
                             st = os.stat(p)
                         except OSError:
                             continue
+                        seen.add(key)
                         yield p, st.st_mtime, st.st_size
 
     def start_sync(self, roots: list[str] | None = None) -> bool:

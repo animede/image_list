@@ -17,6 +17,12 @@ GPU を使うときは、`$env:TORCH_INDEX = "https://download.pytorch.org/whl/c
 CPU のコアを指定するときは `$env:CPU_AFFINITY = "FF"`(16 進のマスク)。設定はその PowerShell の窓を閉じるまで残る。
 コマンドプロンプト(cmd)なら `setup.bat`、`set IMAGE_ROOTS=...` の書き方になる。
 
+デスクトップのアイコンから起動することもできる。`.\setup.bat` のあとに次を一度実行すると、デスクトップに「画像検索」のアイコンができる。
+```
+.\.venv\Scripts\python.exe launch.py --shortcut
+```
+アイコンを開くと、`run.bat` と同じ設定でサーバーが立ち上がり、ブラウザで画面が開く。窓を閉じると止まる。アイコンからは環境変数を渡しにくいので、`CUDA_VISIBLE_DEVICES=0` などはこのフォルダの `launch.env` に 1 行に 1 つずつ書く(git では管理しない)。
+
 ## できること
 - 文章で探す(例: 「夕焼けの海」「猫が寝ている」)
 - 画像で探す(ファイルを選ぶか、画面にドロップ)
@@ -67,6 +73,7 @@ CUDA_VISIBLE_DEVICES=0 ./run.sh
 - `embedder.py` EmbeddingGemma 2(音声部分は読み込まない)
 - `static/index.html` 画面
 - `setup.sh` / `run.sh` 準備と起動
+- `launch.py` / `icon.ico` デスクトップのアイコンから起動するランチャー(Windows)
 - `data/` 索引(`vectors.npy`, `meta.json`, `thumbs/`)。リポジトリには含めない
 
 ## ライセンス
